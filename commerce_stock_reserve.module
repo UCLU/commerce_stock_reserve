@@ -26,20 +26,20 @@ function commerce_stock_reserve_entity_delete($entity, $type) {
  * @param object $line_item
  *   The Commerce line item object.
  *
- * @return float
- *   The amount that has been reserved, as a decimal.
+ * @return string|int
+ *   The amount that has been reserved.
  */
 function commerce_stock_reserve_get_amount($line_item) {
   // Only act on product line item types.
   if (!in_array($line_item->type, commerce_product_line_item_types())) {
-    return (float) 0;
+    return 0;
   }
   $amount = db_select('commerce_stock_reserve', 'csr')
     ->fields('csr', array('amount'))
     ->condition('line_item_id', $line_item->line_item_id)
     ->execute()
     ->fetchField();
-  return (float) $amount;
+  return $amount ? $amount : 0;
 }
 
 /**
