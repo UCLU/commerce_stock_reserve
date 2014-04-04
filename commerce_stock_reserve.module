@@ -1,0 +1,123 @@
+<?php
+/**
+ * Main file for the Commerce Stock Reserve module.
+ */
+
+/**
+ * Implements hook_entity_delete().
+ */
+function commerce_stock_reserve_entity_delete($entity, $type) {
+  // Release reserved stock when a line item is deleted.
+  if ($type == 'commerce_line_item') {
+    commerce_stock_reserve($entity, TRUE);
+  }
+  // Delete reserved stock when a product is deleted.
+  elseif ($type == 'commerce_product') {
+    db_delete('commerce_stock_reserve')
+      ->condition('product_id', $entity->product_id)
+      ->execute();
+  }
+}
+
+/**
+ * Get the stock amount that has been reserved for a line item.
+ */
+function commerce_stock_reserve_get($line_item) {
+  // Only act on product line item types.
+  if (!in_array($line_item->type, commerce_product_line_item_types())) {
+    return;
+  }
+  $reserved = db_select('commerce_stock_reserve', 'csr')
+    ->fields('csr', array('reserved'))
+    ->condition('line_item_id', $line_item->line_item_id)
+    ->execute()
+    ->fetchField();
+  return $reserved;
+}
+
+/**
+ * Reserve stock for a line item.
+ *
+ * @param object $line_item
+ *   The Commerce line item object.
+ * @param bool $release
+ *   Whether to release stock rather than reserving it (default: FALSE).
+ *
+ * @return bool
+ *   TRUE on success, FALSE otherwise.
+ */
+function commerce_stock_reserve($line_item, $release = FALSE) {
+  // Only act on product line item types.
+  if (!in_array($line_item->type, commerce_product_line_item_types())) {
+    return;
+  }
+
+  // Find out how much stock has been reserved for this line item.
+  $current_reserved = commerce_stock_reserve_get($line_item);
+  if ($release && !$current_reserved) {
+    // There is no stock to release.
+    return TRUE;
+  }
+
+  // Get the product from the line item.
+  $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
+  if (empty($line_item_wrapper->commerce_product)) {
+    throw new Exception('Cannot get the product for line item ' . $line_item->line_item_id);
+  }
+
+  $product_wrapper = $line_item_wrapper->commerce_product;
+  $product_id = $product_wrapper->product_id->value();
+
+  // Check that the product is already saved and that it has a stock field.
+  if (!$product_id || !isset($product_wrapper->commerce_stock)) {
+    throw new Exception('Cannot process reserved stock for product ' . $product_id);
+  }
+
+  // Get the current stock level.
+  $current_stock = $product_wrapper->commerce_stock->value();
+
+  // Calculate how much stock should be reserved. If releasing stock, then this
+  // will be a negative value.
+  $to_reserve = $release ? -$current_reserved : $line_item->quantity;
+  if ($to_reserve > $current_stock) {
+    // Cannot reserve stock: there isn't enough available.
+    watchdog('commerce_stock_reserve', 'Not enough stock available for @product_id (trying to reserve @reserve of @current)', array(
+      '@product_id' => $product_id,
+      '@reserve' => $to_reserve,
+      '@current' => $current_stock,
+    ));
+    return FALSE;
+  }
+
+  // Calculate the new stock values.
+  $new_stock = $current_stock - $to_reserve;
+  $new_reserved = $current_reserved + $to_reserve;
+
+  // Save the product's new stock value and update the reserved stock.
+  $transaction = db_transaction(__FUNCTION__);
+  $product_wrapper->commerce_stock->set($new_stock_value);
+  $result = $product_wrapper->save();
+  if (!$result) {
+    throw new Exception('Failed to save product ' . $product_id);
+  }
+  if ($new_reserved > 0) {
+    $key = array(
+      'line_item_id' => $line_item->line_item_id,
+      'product_id' => $product_id,
+    );
+    db_merge('commerce_stock_reserve')
+      ->key($key)
+      ->insertFields($key + array('created' => REQUEST_TIME))
+      ->fields(array(
+        'reserved' => $to_reserve,
+        'changed' => REQUEST_TIME,
+      ))
+      ->execute();
+    return TRUE;
+  }
+  // If the reserved stock level is now 0, delete the rows.
+  db_delete('commerce_stock_reserve')
+    ->condition('line_item_id', $line_item->line_item_id)
+    ->execute();
+  return TRUE;
+}

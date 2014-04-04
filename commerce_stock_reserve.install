@@ -1,0 +1,50 @@
+<?php
+/**
+ * Install/uninstall functions for the Commerce Stock Reserve module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function commerce_stock_reserve_schema() {
+  $schema = array();
+
+  $schema['commerce_stock_reserve'] = array(
+    'description' => 'Stores reserved stock for Commerce line items.',
+    'fields' => array(
+      'line_item_id' => array(
+        'description' => 'The {commerce_line_item}.line_item_id associated with the stock.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'product_id' => array(
+        'description' => 'The {commerce_product}.product_id associated with the stock.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'reserved' => array(
+        'description' => 'The amount of stock that has been reserved.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'created' => array(
+        'description' => 'The UNIX timestamp when this record was created.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'changed' => array(
+        'description' => 'The UNIX timestamp when this record was last modified.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('line_item_id', 'product_id'),
+  );
+  return $schema;
+}

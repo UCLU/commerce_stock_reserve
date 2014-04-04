@@ -1,0 +1,4 @@
+name = Commerce Stock Reserve
+core = 7.x
+dependencies[] = commerce_product
+dependencies[] = commerce_stock (7.x-2.x)
