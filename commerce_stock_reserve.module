@@ -80,6 +80,8 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
 
   // Calculate how much stock should be reserved. If releasing stock, then this
   // will be a negative value.
+  // @todo Using the line item quantity is not correct as we would want to
+  // reserve varying amounts of stock when updating or creating the line item.
   $to_reserve = $release ? -$current_reserved : $line_item->quantity;
   if ($to_reserve > $current_stock) {
     // Cannot reserve stock: there isn't enough available.
