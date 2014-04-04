@@ -24,12 +24,14 @@ function commerce_stock_reserve_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
-      'reserved' => array(
+      'amount' => array(
         'description' => 'The amount of stock that has been reserved.',
-        'type' => 'int',
-        'unsigned' => TRUE,
+        'type' => 'numeric',
+        'size' => 'normal',
         'not null' => TRUE,
-        'default' => 1,
+        'default' => 0,
+        'precision' => 10,
+        'scale' => 2,
       ),
       'created' => array(
         'description' => 'The UNIX timestamp when this record was created.',
@@ -47,4 +49,19 @@ function commerce_stock_reserve_schema() {
     'primary key' => array('line_item_id', 'product_id'),
   );
   return $schema;
+}
+
+/**
+ * Change the integer 'reserved' field to a decimal 'amount' field.
+ */
+function commerce_stock_update_7001() {
+  db_change_field('commerce_stock_reserve', 'reserved', 'amount', array(
+    'description' => 'The amount of stock that has been reserved.',
+    'type' => 'numeric',
+    'size' => 'normal',
+    'not null' => TRUE,
+    'default' => 0,
+    'precision' => 10,
+    'scale' => 2,
+  ));
 }

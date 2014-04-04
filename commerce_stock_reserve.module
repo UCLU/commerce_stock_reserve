@@ -21,18 +21,24 @@ function commerce_stock_reserve_entity_delete($entity, $type) {
 
 /**
  * Get the stock amount that has been reserved for a line item.
+ *
+ * @param object $line_item
+ *   The Commerce line item object.
+ *
+ * @return float
+ *   The amount that has been reserved, as a decimal.
  */
-function commerce_stock_reserve_get($line_item) {
+function commerce_stock_reserve_get_amount($line_item) {
   // Only act on product line item types.
   if (!in_array($line_item->type, commerce_product_line_item_types())) {
-    return;
+    return (float) 0;
   }
-  $reserved = db_select('commerce_stock_reserve', 'csr')
-    ->fields('csr', array('reserved'))
+  $amount = db_select('commerce_stock_reserve', 'csr')
+    ->fields('csr', array('amount'))
     ->condition('line_item_id', $line_item->line_item_id)
     ->execute()
     ->fetchField();
-  return $reserved;
+  return (float) $amount;
 }
 
 /**
@@ -56,7 +62,7 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
   }
 
   // Find out how much stock has been reserved for this line item.
-  $current_reserved = commerce_stock_reserve_get($line_item);
+  $current_reserved = commerce_stock_reserve_get_amount($line_item);
   if ($release && !$current_reserved) {
     // There is no stock to release.
     return TRUE;
@@ -120,7 +126,7 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
       ->key($key)
       ->insertFields($key + array('created' => REQUEST_TIME))
       ->fields(array(
-        'reserved' => $to_reserve,
+        'amount' => $to_reserve,
         'changed' => REQUEST_TIME,
       ))
       ->execute();
