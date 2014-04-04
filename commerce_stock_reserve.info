@@ -1,4 +1,6 @@
 name = Commerce Stock Reserve
+description = Allow stock to be safely reserved to prevent overselling.
 core = 7.x
 dependencies[] = commerce_product
 dependencies[] = commerce_stock (7.x-2.x)
+dependencies[] = commerce_ss (7.x-2.x)

@@ -42,11 +42,14 @@ function commerce_stock_reserve_get($line_item) {
  *   The Commerce line item object.
  * @param bool $release
  *   Whether to release stock rather than reserving it (default: FALSE).
+ * @param bool $restore_to_product
+ *   Whether to restore the stock to the product when it has been released
+ *   (default: TRUE). This only has an effect if $release is TRUE.
  *
  * @return bool
  *   TRUE on success, FALSE otherwise.
  */
-function commerce_stock_reserve($line_item, $release = FALSE) {
+function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_product = TRUE) {
   // Only act on product line item types.
   if (!in_array($line_item->type, commerce_product_line_item_types())) {
     return;
@@ -64,7 +67,6 @@ function commerce_stock_reserve($line_item, $release = FALSE) {
   if (empty($line_item_wrapper->commerce_product)) {
     throw new Exception('Cannot get the product for line item ' . $line_item->line_item_id);
   }
-
   $product_wrapper = $line_item_wrapper->commerce_product;
   $product_id = $product_wrapper->product_id->value();
 
@@ -95,10 +97,12 @@ function commerce_stock_reserve($line_item, $release = FALSE) {
 
   // Save the product's new stock value and update the reserved stock.
   $transaction = db_transaction(__FUNCTION__);
-  $product_wrapper->commerce_stock->set($new_stock_value);
-  $result = $product_wrapper->save();
-  if (!$result) {
-    throw new Exception('Failed to save product ' . $product_id);
+  if (!$release || $restore_to_product) {
+    $product_wrapper->commerce_stock->set($new_stock);
+    $result = $product_wrapper->save();
+    if (!$result) {
+      throw new Exception('Failed to save product ' . $product_id);
+    }
   }
   if ($new_reserved > 0) {
     $key = array(
@@ -113,11 +117,12 @@ function commerce_stock_reserve($line_item, $release = FALSE) {
         'changed' => REQUEST_TIME,
       ))
       ->execute();
-    return TRUE;
   }
-  // If the reserved stock level is now 0, delete the rows.
-  db_delete('commerce_stock_reserve')
-    ->condition('line_item_id', $line_item->line_item_id)
-    ->execute();
+  else {
+    // If the reserved stock level is now 0, delete the rows.
+    db_delete('commerce_stock_reserve')
+      ->condition('line_item_id', $line_item->line_item_id)
+      ->execute();
+  }
   return TRUE;
 }

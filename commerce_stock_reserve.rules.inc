@@ -9,7 +9,7 @@
 function commerce_stock_reserve_rules_action_info() {
   $actions = array();
 
-  $actions['commerce_stock_reserve'] = array(
+  $actions['commerce_stock_reserve_reserve'] = array(
     'label' => t('Reserve stock for a line item'),
     'group' => t('Commerce Stock Reserve'),
     'parameter' => array(
@@ -28,6 +28,12 @@ function commerce_stock_reserve_rules_action_info() {
         'type' => 'commerce_line_item',
         'label' => t('Line item'),
       ),
+      'restore_to_product' => array(
+        'type' => 'boolean',
+        'label' => t('Restore the released stock to the product'),
+        'optional' => TRUE,
+        'default value' => TRUE,
+      ),
     ),
   );
 
@@ -35,11 +41,20 @@ function commerce_stock_reserve_rules_action_info() {
 }
 
 /**
+ * Rules action helper to reserve stock for a line item.
+ */
+function commerce_stock_reserve_reserve($line_item) {
+  commerce_stock_reserve($line_item, FALSE);
+}
+
+/**
  * Rules action helper to release stock for a line item.
  *
  * @param object $line_item
  *   The Commerce line item object.
+ * @param bool $restore_to_product
+ *   Whether to restore the stock back to the product when it has been released.
  */
-function commerce_stock_reserve_release($line_item) {
-  commerce_stock_reserve($line_item, TRUE);
+function commerce_stock_reserve_release($line_item, $restore_to_product = TRUE) {
+  commerce_stock_reserve($line_item, TRUE, $restore_to_product);
 }
