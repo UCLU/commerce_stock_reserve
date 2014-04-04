@@ -1,5 +1,6 @@
 <?php
 /**
+ * @file
  * Install/uninstall functions for the Commerce Stock Reserve module.
  */
 
@@ -54,7 +55,7 @@ function commerce_stock_reserve_schema() {
 /**
  * Change the integer 'reserved' field to a decimal 'amount' field.
  */
-function commerce_stock_update_7001() {
+function commerce_stock_reserve_update_7001() {
   db_change_field('commerce_stock_reserve', 'reserved', 'amount', array(
     'description' => 'The amount of stock that has been reserved.',
     'type' => 'numeric',

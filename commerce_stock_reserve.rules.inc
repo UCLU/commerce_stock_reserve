@@ -1,5 +1,6 @@
 <?php
 /**
+ * @file
  * Rules integration for the Commerce Stock Reserve module.
  */
 
