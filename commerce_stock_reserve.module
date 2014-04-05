@@ -117,7 +117,7 @@ function commerce_stock_reserve_set_product_stock($product, $stock, $skip_save =
     }
   }
   if (!$skip_save && $success) {
-    $success = (bool) $product_wrapper->save();
+    $success = (bool) commerce_product_save($product);
   }
   return $success;
 }
@@ -144,8 +144,7 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
 
   // Get the product from the line item.
   $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
-  $product_wrapper = $line_item_wrapper->commerce_product;
-  $product = $product_wrapper->value();
+  $product = $line_item_wrapper->commerce_product->value();
 
   // Check that the product is enabled for stock control.
   if (!commerce_stock_reserve_product_is_enabled($product)) {
