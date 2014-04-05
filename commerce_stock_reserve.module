@@ -29,7 +29,7 @@ function commerce_stock_reserve_entity_delete($entity, $type) {
  * @return string|int
  *   The amount that has been reserved.
  */
-function commerce_stock_reserve_get_amount($line_item) {
+function commerce_stock_reserve_get_reserved_amount($line_item) {
   // Only act on product line item types.
   if (!in_array($line_item->type, commerce_product_line_item_types())) {
     return 0;
@@ -40,6 +40,86 @@ function commerce_stock_reserve_get_amount($line_item) {
     ->execute()
     ->fetchField();
   return $amount ? $amount : 0;
+}
+
+/**
+ * Check that a product is enabled for stock control.
+ *
+ * @param object $product
+ *   The Commerce product object.
+ *
+ * @return bool
+ *   TRUE if the product has stock enabled, FALSE otherwise.
+ */
+function commerce_stock_reserve_product_is_enabled($product) {
+  $enabled = FALSE;
+  // Support Commerce Simple Stock (commerce_ss), probably the most common
+  // use-case.
+  if (module_exists('commerce_ss')) {
+    $enabled = $product->product_id
+      && commerce_ss_product_type_enabled($product->type)
+      && commerce_ss_product_not_disabled_by_override($product);
+  }
+  // Allow other modules to alter whether the product has stock control.
+  drupal_alter('commerce_stock_reserve_product_is_enabled', $enabled, $product);
+  return $enabled;
+}
+
+/**
+ * Check the current stock level for a product.
+ *
+ * @param object $product
+ *   The Commerce product object.
+ *
+ * @return mixed
+ *   The product's stock amount.
+ */
+function commerce_stock_reserve_get_product_stock($product) {
+  $stock = 0;
+  // Support Commerce Simple Stock (commerce_ss).
+  if (module_exists('commerce_ss') && !empty($product->commerce_stock)) {
+    $product_wrapper = entity_metadata_wrapper('commerce_product', $product);
+    $stock = $product_wrapper->commerce_stock->value();
+  }
+  // Allow other modules to alter the returned stock level.
+  drupal_alter('commerce_stock_reserve_get_product_stock', $stock, $product);
+  return $stock;
+}
+
+/**
+ * Set the stock level for a product.
+ *
+ * @param object $product
+ *   The Commerce product object.
+ * @param mixed $stock
+ *   The new stock.
+ * @param bool $skip_save
+ *   Set this to TRUE to skip saving the product.
+ *
+ * @return bool
+ *   TRUE on success, FALSE on failure.
+ */
+function commerce_stock_reserve_set_product_stock($product, $stock, $skip_save = FALSE) {
+  $success = FALSE;
+  // Support Commerce Simple Stock (commerce_ss).
+  if (module_exists('commerce_ss') && isset($product->commerce_stock)) {
+    $product_wrapper = entity_metadata_wrapper('commerce_product', $product);
+    $product_wrapper->commerce_stock->set($stock);
+    $success = TRUE;
+  }
+  // Allow other modules to try setting the product stock.
+  $hook = 'commerce_stock_reserve_set_product_stock';
+  foreach (module_implements($hook) as $module_name) {
+    $function = $module_name . '_' . $hook;
+    $result = $function($product, $stock);
+    if ($result === FALSE) {
+      return FALSE;
+    }
+  }
+  if (!$skip_save && $success) {
+    $success = (bool) $product_wrapper->save();
+  }
+  return $success;
 }
 
 /**
@@ -67,25 +147,20 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
   $product_wrapper = $line_item_wrapper->commerce_product;
   $product = $product_wrapper->value();
 
-  // Check that the product is enabled for stock management.
-  if (!$product->product_id || !commerce_ss_product_type_enabled($product->type)) {
+  // Check that the product is enabled for stock control.
+  if (!commerce_stock_reserve_product_is_enabled($product)) {
     return FALSE;
   }
 
-  // Check that there is a stock field.
-  if (!isset($product->commerce_stock)) {
-    throw new Exception('The product does not have a commerce_stock field');
-  }
-
   // Find out how much stock has been reserved for the line item.
-  $current_reserved = commerce_stock_reserve_get_amount($line_item);
+  $current_reserved = commerce_stock_reserve_get_reserved_amount($line_item);
   if ($release && !$current_reserved) {
     // There is no stock to release.
     return TRUE;
   }
 
   // Get the current stock level.
-  $current_stock = $product_wrapper->commerce_stock->value();
+  $current_stock = commerce_stock_reserve_get_product_stock($product);
 
   // Calculate how much stock should be reserved. If releasing stock, then this
   // will be a negative value.
@@ -120,10 +195,9 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
   // Save the product's new stock value and update the reserved stock.
   $transaction = db_transaction(__FUNCTION__);
   if (!$release || $restore_to_product) {
-    $product_wrapper->commerce_stock->set($new_stock);
-    $result = $product_wrapper->save();
-    if (!$result) {
-      throw new Exception('Failed to save product ' . $product->sku);
+    $update = commerce_stock_reserve_set_product_stock($product, $new_stock);
+    if (!$update) {
+      throw new Exception('Failed to set stock for product ' . $product->sku);
     }
   }
   if ($to_reserve > 0) {
