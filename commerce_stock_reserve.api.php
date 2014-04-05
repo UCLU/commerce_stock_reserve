@@ -37,7 +37,7 @@ function hook_commerce_stock_reserve_product_is_enabled_alter(&$enabled, $produc
 function hook_commerce_stock_reserve_get_product_stock_alter(&$stock, $product) {
   if (isset($product->my_custom_stock_field)) {
     $product_wrapper = entity_metadata_wrapper('commerce_product', $product);
-    $stock = $product->my_custom_stock_field->value();
+    $stock = $product_wrapper->my_custom_stock_field->value();
   }
 }
 
@@ -51,7 +51,7 @@ function hook_commerce_stock_reserve_get_product_stock_alter(&$stock, $product) 
  *
  * @param object $product
  *   The Commerce product object.
- * @param mixed &$stock
+ * @param mixed $stock
  *   The new stock level to set.
  *
  * @return mixed
@@ -60,7 +60,7 @@ function hook_commerce_stock_reserve_get_product_stock_alter(&$stock, $product) 
 function hook_commerce_stock_reserve_set_product_stock($product, $stock) {
   if (isset($product->my_custom_stock_field)) {
     $product_wrapper = entity_metadata_wrapper('commerce_product', $product);
-    $product->my_custom_stock_field->set($stock);
+    $product_wrapper->my_custom_stock_field->set($stock);
   }
   else {
     return FALSE;
