@@ -95,14 +95,20 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
   if ($to_reserve == $current_reserved) {
     return TRUE;
   }
+  // If there isn't enough stock available for what has been requested, then
+  // reset the line item's quantity to the maximum available and log a warning.
   elseif ($to_reserve > $current_stock + $current_reserved) {
-    // Cannot reserve stock: there isn't enough available.
-    watchdog('commerce_stock_reserve', 'Not enough stock available for product @product_id (trying to reserve @reserve of @current)', array(
-      '@product_id' => $product->sku,
-      '@reserve' => $to_reserve,
-      '@current' => $current_stock + $current_reserved,
-    ));
-    return FALSE;
+    $available = $current_stock + $current_reserved;
+    $line_item->quantity = $available;
+    $line_item_wrapper->save();
+    $to_reserve = $available;
+    watchdog('commerce_stock_reserve', 'Quantity reset (@requested requested, @available available) for line item @line_item in order @order (product @sku)', array(
+      '@requested' => $to_reserve,
+      '@available' => $available,
+      '@line_item' => $line_item->line_item_id,
+      '@order' => $line_item->order_id,
+      '@sku' => $product->sku,
+    ), WATCHDOG_WARNING);
   }
 
   // Calculate the new stock values.
