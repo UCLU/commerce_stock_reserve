@@ -58,28 +58,30 @@ function commerce_stock_reserve_get_amount($line_item) {
  */
 function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_product = TRUE) {
   // Only act on product line item types.
-  if (!in_array($line_item->type, commerce_product_line_item_types())) {
-    return;
-  }
-
-  // Find out how much stock has been reserved for this line item.
-  $current_reserved = commerce_stock_reserve_get_amount($line_item);
-  if ($release && !$current_reserved) {
-    // There is no stock to release.
-    return TRUE;
+  if (!in_array($line_item->type, commerce_product_line_item_types()) || empty($line_item->commerce_product)) {
+    return FALSE;
   }
 
   // Get the product from the line item.
   $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
-  if (empty($line_item_wrapper->commerce_product)) {
-    throw new Exception('Cannot get the product for line item ' . $line_item->line_item_id);
-  }
   $product_wrapper = $line_item_wrapper->commerce_product;
-  $product_id = $product_wrapper->product_id->value();
+  $product = $product_wrapper->value();
 
-  // Check that the product is already saved and that it has a stock field.
-  if (!$product_id || !isset($product_wrapper->commerce_stock)) {
-    throw new Exception('Cannot process reserved stock for product ' . $product_id);
+  // Check that the product is enabled for stock management.
+  if (!$product->product_id || !commerce_ss_product_type_enabled($product->type)) {
+    return FALSE;
+  }
+
+  // Check that there is a stock field.
+  if (!isset($product->commerce_stock)) {
+    throw new Exception('The product does not have a commerce_stock field');
+  }
+
+  // Find out how much stock has been reserved for the line item.
+  $current_reserved = commerce_stock_reserve_get_amount($line_item);
+  if ($release && !$current_reserved) {
+    // There is no stock to release.
+    return TRUE;
   }
 
   // Get the current stock level.
@@ -96,7 +98,7 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
   elseif ($to_reserve > $current_stock + $current_reserved) {
     // Cannot reserve stock: there isn't enough available.
     watchdog('commerce_stock_reserve', 'Not enough stock available for product @product_id (trying to reserve @reserve of @current)', array(
-      '@product_id' => $product_id,
+      '@product_id' => $product->sku,
       '@reserve' => $to_reserve,
       '@current' => $current_stock + $current_reserved,
     ));
@@ -115,13 +117,13 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
     $product_wrapper->commerce_stock->set($new_stock);
     $result = $product_wrapper->save();
     if (!$result) {
-      throw new Exception('Failed to save product ' . $product_id);
+      throw new Exception('Failed to save product ' . $product->sku);
     }
   }
   if ($to_reserve > 0) {
     $key = array(
       'line_item_id' => $line_item->line_item_id,
-      'product_id' => $product_id,
+      'product_id' => $product->product_id,
     );
     db_merge('commerce_stock_reserve')
       ->key($key)
