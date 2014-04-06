@@ -42,6 +42,43 @@ function commerce_stock_reserve_rules_action_info() {
 }
 
 /**
+ * Implements hook_rules_condition_info().
+ */
+function commerce_stock_reserve_rules_condition_info() {
+  $conditions = array();
+
+  $conditions['commerce_stock_reserve_is_enough_available'] = array(
+    'label' => t('Enough product stock is available for the user'),
+    'parameter' => array(
+      'commerce_product' => array(
+        'type' => 'commerce_product',
+        'label' => t('Product'),
+      ),
+      'stock_already_ordered' => array(
+        'type' => 'decimal',
+        'label' => t('Stock already ordered'),
+      ),
+    ),
+    'group' => t('Commerce Stock Reserve'),
+    'callbacks' => array(
+      'execute' => 'commerce_stock_reserve_is_enough_available',
+    ),
+    'module' => 'commerce_stock_reserve',
+  );
+
+  return $conditions;
+}
+
+/**
+ * Rules condition to check that enough product stock is available for the user.
+ */
+function commerce_stock_reserve_is_enough_available($product, $already_ordered) {
+  $product_stock = commerce_stock_reserve_get_product_stock($product);
+  $user_reserved = commerce_stock_reserve_get_user_reserved_amount($product);
+  return $already_ordered <= $product_stock + $user_reserved;
+}
+
+/**
  * Rules action helper to reserve stock for a line item.
  */
 function commerce_stock_reserve_reserve($line_item) {
