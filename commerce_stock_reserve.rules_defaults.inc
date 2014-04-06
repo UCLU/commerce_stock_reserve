@@ -60,22 +60,37 @@ function commerce_stock_reserve_default_rules_configuration() {
 function commerce_stock_reserve_default_rules_configuration_alter(&$configs) {
   // The commerce_ssr (Commerce Simple Stock Rules) module defines default Rules
   // which validate stock when the user is adding a product to the cart or
-  // beginning checkout. These need to be modified account for users who have
-  // already reserved some stock for that product. So here we add the condition
-  // 'NOT Enough product stock is available for the user' to both of those
-  // default Rules.
-  $rules_to_alter = array(
-    'rules_stock_validate_add_to_cart',
-    'rules_stock_validate_checkout',
-  );
-  foreach ($rules_to_alter as $rule_name) {
-    if (!isset($configs[$rule_name])) {
-      continue;
-    }
-    $condition = rules_condition('commerce_stock_reserve_is_enough_available', array(
-      'commerce_product:select' => 'commerce-product',
-      'stock_already_ordered:select' => 'stock-already-ordered',
-    ))->negate();
-    $configs[$rule_name]->condition($condition);
+  // beginning checkout. These need to be modified to account for users who have
+  // already reserved some stock for that product. So here we add a condition
+  // and action to both of these Rules, which validate according to the amount
+  // of stock available to the user, i.e. the product's current stock PLUS what
+  // the user has already reserved.
+  if (isset($configs['rules_stock_validate_add_to_cart'])) {
+    $configs['rules_stock_validate_add_to_cart']->condition(
+        rules_condition('commerce_stock_reserve_is_enough_available', array(
+          'commerce_product:select' => 'commerce-product',
+          'stock_already_ordered:select' => 'stock-already-ordered',
+        ))
+        ->negate()
+      )
+      ->action('commerce_stock_add_to_cart_set_state', array(
+        'stock_action' => '1',
+        'message' => 'The maximum quantity available for <em>[commerce-product:title]</em> is [commerce-product:user-available-stock].',
+        'approved_quantity:select' => 'approved-quantity',
+      ));
+  }
+  if (isset($configs['rules_stock_validate_checkout'])) {
+    $configs['rules_stock_validate_checkout']->condition(
+        rules_condition('commerce_stock_reserve_is_enough_available', array(
+          'commerce_product:select' => 'commerce-product',
+          'stock_already_ordered:select' => 'stock-already-ordered',
+        ))
+        ->negate()
+      )
+      ->action('commerce_stock_checkout_state', array(
+        'stock_action' => '1',
+        'message' => 'The maximum quantity available for <em>[commerce-product:title]</em> is [commerce-product:user-available-stock].',
+        'approved_quantity:select' => 'commerce-product:commerce-stock',
+      ));
   }
 }

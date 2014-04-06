@@ -73,9 +73,7 @@ function commerce_stock_reserve_rules_condition_info() {
  * Rules condition to check that enough product stock is available for the user.
  */
 function commerce_stock_reserve_is_enough_available($product, $already_ordered) {
-  $product_stock = commerce_stock_reserve_get_product_stock($product);
-  $user_reserved = commerce_stock_reserve_get_user_reserved_amount($product);
-  return $already_ordered <= $product_stock + $user_reserved;
+  return $already_ordered <= commerce_stock_reserve_get_user_available_amount($product);
 }
 
 /**

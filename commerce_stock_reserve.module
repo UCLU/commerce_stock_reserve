@@ -47,21 +47,24 @@ function commerce_stock_reserve_get_reserved_amount($line_item) {
  *
  * @param object $product
  *   The Commerce product object.
+ * @param object $account
+ *   A Drupal user account object (defaults to the current user).
  *
  * @return string|int
  *   The amount that has been reserved.
  */
-function commerce_stock_reserve_get_user_reserved_amount($product) {
+function commerce_stock_reserve_get_user_reserved_amount($product, $account = NULL) {
   static $cache;
-  if (isset($cache[$product->product_id])) {
-    return $cache[$product->product_id];
+  $account = $account ? $account : $GLOBALS['user'];
+  $cache_key = $account->uid . ':' . $product->product_id;
+  if (isset($cache[$cache_key])) {
+    return $cache[$cache_key];
   }
-  $cache[$product->product_id] = 0;
-  global $user;
-  // Load the current user's cart if it exists.
-  $order = commerce_cart_order_load($user->uid);
+  $cache[$cache_key] = 0;
+  // Load the user's cart if it exists.
+  $order = commerce_cart_order_load($account->uid);
   if (!$order) {
-    $cache[$product->product_id] = 0;
+    $cache[$cache_key] = 0;
     return 0;
   }
   $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
@@ -74,7 +77,7 @@ function commerce_stock_reserve_get_user_reserved_amount($product) {
     }
   }
   if (!count($line_item_ids)) {
-    $cache[$product->product_id] = 0;
+    $cache[$cache_key] = 0;
     return 0;
   }
   // Get the reserved amount for these line item IDs.
@@ -83,8 +86,28 @@ function commerce_stock_reserve_get_user_reserved_amount($product) {
     ->condition('product_id', $product->product_id);
   $select->addExpression('SUM(csr.amount)', 'amount');
   $amount = $select->execute()->fetchField();
-  $cache[$product->product_id] = $amount ? $amount : 0;
-  return $cache[$product->product_id];
+  $cache[$cache_key] = $amount ? $amount : 0;
+  return $cache[$cache_key];
+}
+
+/**
+ * Get the amount of product stock that is available for a particular user.
+ *
+ * This is the sum of the product's stock and the amount the user has already
+ * reserved.
+ *
+ * @param object $product
+ *   The Commerce product object.
+ * @param object $account
+ *   A Drupal user account object (defaults to the current user).
+ *
+ * @return float|int
+ *   The amount that has been reserved.
+ */
+function commerce_stock_reserve_get_user_available_amount($product, $account = NULL) {
+  $stock = commerce_stock_reserve_get_product_stock($product);
+  $amount = commerce_stock_reserve_get_user_reserved_amount($product, $account);
+  return $stock + $amount;
 }
 
 /**
@@ -120,6 +143,10 @@ function commerce_stock_reserve_product_is_enabled($product) {
  *   The product's stock amount.
  */
 function commerce_stock_reserve_get_product_stock($product) {
+  static $cache = array();
+  if (isset($cache[$product->product_id])) {
+    return $cache[$product->product_id];
+  }
   $stock = 0;
   // Support Commerce Simple Stock (commerce_ss).
   if (module_exists('commerce_ss') && !empty($product->commerce_stock)) {
@@ -128,6 +155,7 @@ function commerce_stock_reserve_get_product_stock($product) {
   }
   // Allow other modules to alter the returned stock level.
   drupal_alter('commerce_stock_reserve_get_product_stock', $stock, $product);
+  $cache[$product->product_id] = $stock;
   return $stock;
 }
 
