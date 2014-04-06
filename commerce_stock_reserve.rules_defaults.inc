@@ -52,3 +52,30 @@ function commerce_stock_reserve_default_rules_configuration() {
 
   return $configs;
 }
+
+
+/**
+ * Implements hook_default_rules_configuration().
+ */
+function commerce_stock_reserve_default_rules_configuration_alter(&$configs) {
+  // The commerce_ssr (Commerce Simple Stock Rules) module defines default Rules
+  // which validate stock when the user is adding a product to the cart or
+  // beginning checkout. These need to be modified account for users who have
+  // already reserved some stock for that product. So here we add the condition
+  // 'NOT Enough product stock is available for the user' to both of those
+  // default Rules.
+  $rules_to_alter = array(
+    'rules_stock_validate_add_to_cart',
+    'rules_stock_validate_checkout',
+  );
+  foreach ($rules_to_alter as $rule_name) {
+    if (!isset($configs[$rule_name])) {
+      continue;
+    }
+    $condition = rules_condition('commerce_stock_reserve_is_enough_available', array(
+      'commerce_product:select' => 'commerce-product',
+      'stock_already_ordered:select' => 'stock-already-ordered',
+    ))->negate();
+    $configs[$rule_name]->condition($condition);
+  }
+}
