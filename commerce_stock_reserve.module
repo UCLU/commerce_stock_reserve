@@ -78,12 +78,11 @@ function commerce_stock_reserve_get_user_reserved_amount($product) {
     return 0;
   }
   // Get the reserved amount for these line item IDs.
-  $amount = db_select('commerce_stock_reserve', 'csr')
-    ->fields('csr', array('amount'))
+  $select = db_select('commerce_stock_reserve', 'csr')
     ->condition('line_item_id', $line_item_ids, 'IN')
-    ->condition('product_id', $product->product_id)
-    ->execute()
-    ->fetchField();
+    ->condition('product_id', $product->product_id);
+  $select->addExpression('SUM(csr.amount)', 'amount');
+  $amount = $select->execute()->fetchField();
   $cache[$product->product_id] = $amount ? $amount : 0;
   return $cache[$product->product_id];
 }
