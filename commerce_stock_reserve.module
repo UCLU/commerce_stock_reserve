@@ -5,6 +5,27 @@
  */
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function commerce_stock_reserve_form_commerce_product_product_form_alter(&$form, &$form_state) {
+  // Display the currently reserved stock on the product edit form.
+  $product = $form_state['commerce_product'];
+  if ($product->product_id && isset($product->commerce_stock) && isset($form['commerce_stock'][$product->language][0]['value'])) {
+    $element = &$form['commerce_stock'][$product->language][0]['value'];
+    $select = db_select('commerce_stock_reserve', 'csr')
+      ->condition('product_id', $product->product_id);
+    $select->addExpression('SUM(amount)');
+    $reserved = $select->execute()->fetchField();
+    $integer = isset($element['#number_type']) && $element['#number_type'] == 'integer';
+    $element['#description'] = empty($element['#description']) ? '' : $element['#description'] . ' ';
+    $element['#description'] .= t('Quantity currently reserved: @reserved.', array(
+      '@reserved' => number_format($reserved, $integer ? 0 : 2),
+    ));
+    $element['#field_suffix'] = ' + ' . number_format($reserved, $integer ? 0 : 2);
+  }
+}
+
+/**
  * Implements hook_entity_delete().
  */
 function commerce_stock_reserve_entity_delete($entity, $type) {
