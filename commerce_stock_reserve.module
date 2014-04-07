@@ -31,11 +31,12 @@ function commerce_stock_reserve_cron() {
   if (!variable_get('commerce_stock_reserve_expire_on_cron', '1')) {
     return;
   }
-  $interval = variable_get('commerce_stock_reserve_expire_interval');
-  $date_ref = variable_get('commerce_stock_reserve_expire_date_ref');
-  $restore_to_product = variable_get('commerce_stock_reserve_expire_restore');
-  $limit = variable_get('commerce_stock_reserve_expire_limit');
-  commerce_stock_reserve_expire_line_items($interval, $date_ref, $restore_to_product, $limit);
+  $interval = variable_get('commerce_stock_reserve_expire_interval', 1800);
+  $date_ref = variable_get('commerce_stock_reserve_expire_date_ref', 'order_changed');
+  $restore_to_product = variable_get('commerce_stock_reserve_expire_restore', TRUE);
+  $cart_only = variable_get('commerce_stock_reserve_expire_only_cart', TRUE);
+  $limit = variable_get('commerce_stock_reserve_expire_limit', 50);
+  commerce_stock_reserve_expire_line_items($interval, $date_ref, $restore_to_product, $cart_only, $limit);
 }
 
 /**
@@ -50,10 +51,13 @@ function commerce_stock_reserve_cron() {
  *   commerce_stock_reserve_expire_date_ref_options_list().
  * @param bool $restore_to_product
  *   Whether to restore released stock back to the product (default: TRUE).
+ * @param bool $cart_only
+ *   Only release stock from orders that are in a shopping cart status (default:
+ *   TRUE). See commerce_cart_order_is_cart().
  * @param int $limit
  *   The maximum number of line items to process (default: 50).
  */
-function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 'order_changed', $restore_to_product = TRUE, $limit = 50) {
+function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 'order_changed', $restore_to_product = TRUE, $cart_only = TRUE, $limit = 50) {
   $select = db_select('commerce_stock_reserve', 'csr')
     ->fields('csr', array('line_item_id'));
   if ($limit) {
@@ -87,9 +91,21 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
     return;
   }
   $line_items = commerce_line_item_load_multiple($line_item_ids);
+  $cart_only_orders = array();
   $done = array();
   $errors = array();
   foreach ($line_items as $line_item_id => $line_item) {
+    if ($cart_only) {
+      // Check that the line item's order is a shopping cart.
+      if (isset($cart_only_orders[$line_item->order_id])) {
+        continue;
+      }
+      $order = commerce_order_load($line_item->order_id);
+      if (!commerce_cart_order_is_cart($order)) {
+        $cart_only_orders[$order->order_id] = $order->order_id;
+        continue;
+      }
+    }
     $success = commerce_stock_reserve($line_item, TRUE, $restore_to_product);
     if ($success) {
       $done[] = $line_item_id;

@@ -12,7 +12,7 @@ function commerce_stock_reserve_config_form($form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Release old reserved stock on cron'),
     '#description' => t('If enabled, reserved stock will be processed during cron runs. Old line items will be deleted after their stock is released. This guards against underselling, when users still have stock reserved in their shopping carts when sales close.'),
-    '#default_value' => variable_get('commerce_stock_reserve_expire_on_cron', '1'),
+    '#default_value' => variable_get('commerce_stock_reserve_expire_on_cron', TRUE),
   );
 
   $form['cron'] = array(
@@ -48,7 +48,13 @@ function commerce_stock_reserve_config_form($form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Restore released stock to the product.'),
     '#description' => t("Whether to increment the product's stock quantity when the reserved stock is released."),
-    '#default_value' => variable_get('commerce_stock_reserve_expire_restore', '1'),
+    '#default_value' => variable_get('commerce_stock_reserve_expire_restore', TRUE),
+  );
+  $form['cron']['commerce_stock_reserve_expire_only_cart'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Only release stock from shopping carts'),
+    '#description' => t("Only release stock on cron if the line item's order still has a 'cart' status."),
+    '#default_value' => variable_get('commerce_stock_reserve_expire_only_cart', TRUE),
   );
   $form['cron']['commerce_stock_reserve_expire_limit'] = array(
     '#type' => 'textfield',

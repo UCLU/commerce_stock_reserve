@@ -60,6 +60,7 @@ function commerce_stock_reserve_uninstall() {
   variable_del('commerce_stock_reserve_expire_interval');
   variable_del('commerce_stock_reserve_expire_date_ref');
   variable_del('commerce_stock_reserve_expire_restore');
+  variable_del('commerce_stock_reserve_expire_only_cart');
   variable_del('commerce_stock_reserve_expire_limit');
 }
 
