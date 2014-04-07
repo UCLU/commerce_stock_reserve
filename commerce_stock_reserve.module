@@ -98,6 +98,7 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
       $errors[] = $line_item_id;
     }
   }
+  // Only delete line items if their stock could be released.
   if ($done) {
     commerce_line_item_delete_multiple($done);
     watchdog('commerce_stock_reserve', 'Released reserve stock and deleted @count line item(s)', array(
