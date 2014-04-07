@@ -1,6 +1,8 @@
 name = Commerce Stock Reserve
 description = Allow stock to be safely reserved to prevent overselling.
 core = 7.x
+configure = admin/commerce/config/stock/reserve
+package = Commerce (stock)
 dependencies[] = entity
 dependencies[] = commerce
 dependencies[] = commerce_product
