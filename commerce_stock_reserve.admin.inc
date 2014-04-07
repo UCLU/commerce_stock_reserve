@@ -42,7 +42,7 @@ function commerce_stock_reserve_config_form($form, &$form_state) {
     '#title' => t('Reference date'),
     '#description' => t('The date and time that the interval relates to.'),
     '#options' => commerce_stock_reserve_expire_date_ref_options_list(),
-    '#default_value' => variable_get('commerce_stock_reserve_expire_date_ref', 'reservation_created'),
+    '#default_value' => variable_get('commerce_stock_reserve_expire_date_ref', 'order_changed'),
   );
   $form['cron']['commerce_stock_reserve_expire_restore'] = array(
     '#type' => 'checkbox',

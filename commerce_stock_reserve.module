@@ -45,36 +45,29 @@ function commerce_stock_reserve_cron() {
  *   The interval (in seconds) after which to release reserved stock. Defaults
  *   to 1800 (half an hour).
  * @param string $date_ref
- *   The date the $interval relates to. The default is 'reservation_created',
- *   i.e. when stock was initially reserved for the line item. The options are
- *   defined in commerce_stock_reserve_expire_date_ref_options_list().
+ *   The date the $interval relates to. The default is 'order_changed', i.e.
+ *   when the order was last modified. The options are defined in
+ *   commerce_stock_reserve_expire_date_ref_options_list().
  * @param bool $restore_to_product
  *   Whether to restore released stock back to the product (default: TRUE).
  * @param int $limit
  *   The maximum number of line items to process (default: 50).
  */
-function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 'reservation_created', $restore_to_product = TRUE, $limit = 50) {
+function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 'order_changed', $restore_to_product = TRUE, $limit = 50) {
   $select = db_select('commerce_stock_reserve', 'csr')
     ->fields('csr', array('line_item_id'));
   if ($limit) {
     $select->range(0, $limit);
   }
   switch ($date_ref) {
-    case 'order_changed':
-      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
-      $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
-      $select->condition('co.changed', REQUEST_TIME - $interval, '<');
-      break;
-
     case 'order_created':
       $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
       $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
       $select->condition('co.created', REQUEST_TIME - $interval, '<');
       break;
 
-    case 'line_item_created':
-      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
-      $select->condition('cli.created', REQUEST_TIME - $interval, '<');
+    case 'reservation_created':
+      $select->condition('csr.created', REQUEST_TIME - $interval, '<');
       break;
 
     case 'line_item_changed':
@@ -82,9 +75,12 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
       $select->condition('cli.changed', REQUEST_TIME - $interval, '<');
       break;
 
-    case 'reservation_created':
+    case 'order_changed':
     default:
-      $select->condition('csr.created', REQUEST_TIME - $interval, '<');
+      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
+      $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
+      $select->condition('co.changed', REQUEST_TIME - $interval, '<');
+      break;
   }
   $line_item_ids = $select->execute()->fetchCol();
   if (!$line_item_ids) {
@@ -123,11 +119,10 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
  */
 function commerce_stock_reserve_expire_date_ref_options_list() {
   return array(
-    'reservation_created' => t('Stock reserved date'),
     'order_changed' => t('Order last modified date'),
+    'reservation_created' => t('Stock reserved date'),
+    'line_item_changed' => t('Line item last modified date'),
     'order_created' => t('Order created date'),
-    'line_item_created' => t('Line item created date'),
-    'line_item_changed' => t('Line item changed date'),
   );
 }
 
