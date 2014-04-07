@@ -5,6 +5,133 @@
  */
 
 /**
+ * Implements hook_menu().
+ */
+function commerce_stock_reserve_menu() {
+  $items = array();
+  $items['admin/commerce/config/stock/reserve'] = array(
+    'title' => 'Reserved stock',
+    'description' => 'Configure settings for reserved stock.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_stock_reserve_config_form'),
+    'access arguments' => array('administer commerce_stock settings'),
+    'file' => 'commerce_stock_reserve.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function commerce_stock_reserve_cron() {
+  // Release reserved stock after a configured interval, deleting the line
+  // items where appropriate.
+  if (!variable_get('commerce_stock_reserve_expire_on_cron', '1')) {
+    return;
+  }
+  $interval = variable_get('commerce_stock_reserve_expire_interval');
+  $date_ref = variable_get('commerce_stock_reserve_expire_date_ref');
+  $restore_to_product = variable_get('commerce_stock_reserve_expire_restore');
+  $limit = variable_get('commerce_stock_reserve_expire_limit');
+  commerce_stock_reserve_expire_line_items($interval, $date_ref, $restore_to_product, $limit);
+}
+
+/**
+ * Expire reserved stock and delete the line items after a certain interval.
+ *
+ * @param int $interval
+ *   The interval (in seconds) after which to release reserved stock. Defaults
+ *   to 1800 (half an hour).
+ * @param string $date_ref
+ *   The date the $interval relates to. The default is 'reservation_created',
+ *   i.e. when stock was initially reserved for the line item. The options are
+ *   defined in commerce_stock_reserve_expire_date_ref_options_list().
+ * @param bool $restore_to_product
+ *   Whether to restore released stock back to the product (default: TRUE).
+ * @param int $limit
+ *   The maximum number of line items to process (default: 50).
+ */
+function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 'reservation_created', $restore_to_product = TRUE, $limit = 50) {
+  $select = db_select('commerce_stock_reserve', 'csr')
+    ->fields('csr', array('line_item_id'));
+  if ($limit) {
+    $select->range(0, $limit);
+  }
+  switch ($date_ref) {
+    case 'order_changed':
+      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
+      $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
+      $select->condition('co.changed', REQUEST_TIME - $interval, '<');
+      break;
+
+    case 'order_created':
+      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
+      $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
+      $select->condition('co.created', REQUEST_TIME - $interval, '<');
+      break;
+
+    case 'line_item_created':
+      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
+      $select->condition('cli.created', REQUEST_TIME - $interval, '<');
+      break;
+
+    case 'line_item_changed':
+      $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
+      $select->condition('cli.changed', REQUEST_TIME - $interval, '<');
+      break;
+
+    case 'reservation_created':
+    default:
+      $select->condition('csr.created', REQUEST_TIME - $interval, '<');
+  }
+  $line_item_ids = $select->execute()->fetchCol();
+  if (!$line_item_ids) {
+    return;
+  }
+  $line_items = commerce_line_item_load_multiple($line_item_ids);
+  $done = array();
+  $errors = array();
+  foreach ($line_items as $line_item_id => $line_item) {
+    $success = commerce_stock_reserve($line_item, TRUE, $restore_to_product);
+    if ($success) {
+      $done[] = $line_item_id;
+    }
+    else {
+      $errors[] = $line_item_id;
+    }
+  }
+  if ($done) {
+    commerce_line_item_delete_multiple($done);
+    watchdog('commerce_stock_reserve', 'Released reserve stock and deleted @count line item(s)', array(
+      '@count' => count($delete),
+    ));
+  }
+  if ($errors) {
+    watchdog('commerce_stock_reserve', 'Failed to release reserved stock for line items: @ids', array(
+      '@ids' => implode(', ', $errors),
+    ), WATCHDOG_ERROR);
+  }
+}
+
+/**
+ * The options for a reference date from which to calculate stock as expired.
+ *
+ * @return array
+ *   An array of human-readable options, keyed by their machine names.
+ */
+function commerce_stock_reserve_expire_date_ref_options_list() {
+  return array(
+    'reservation_created' => t('Stock reserved date'),
+    'order_changed' => t('Order last modified date'),
+    'order_created' => t('Order created date'),
+    'line_item_created' => t('Line item created date'),
+    'line_item_changed' => t('Line item changed date'),
+  );
+}
+
+/**
  * Implements hook_form_FORM_ID_alter().
  */
 function commerce_stock_reserve_form_commerce_product_product_form_alter(&$form, &$form_state) {
