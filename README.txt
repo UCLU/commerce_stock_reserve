@@ -9,11 +9,10 @@ buy the same product at the same time.
 
 Releasing reserved stock on cron
 --------------------------------
-The trade-off is that it introduces a risk of underselling, if stock remains
-"reserved" in customers' carts when sales are closed. So this module lets you
-release old reserved stock during cron runs. The default is that reserved stock
-will be released from orders (carts) that have not been modified for more than
-half an hour.
+There is a risk of underselling, if stock remains "reserved" in customers' carts
+when sales are closed. So this module lets you release old reserved stock during
+cron runs. The default is that reserved stock will be released from orders
+(carts) that have not been modified for more than half an hour.
 
 You can configure this at: admin/commerce/config/stock/reserve
 

@@ -19,7 +19,10 @@ function commerce_stock_reserve_config_form($form, &$form_state) {
     '#type' => 'fieldset',
     '#title' => t('Cron settings'),
     '#description' => t('You can combine this approach with the !Commerce Cart Expiration module.', array(
-      '!Commerce Cart Expiration' => l('Commerce Cart Expiration', 'https://drupal.org/project/commerce_cart_expiration'),
+      '!Commerce Cart Expiration' => l(
+        t('Commerce Cart Expiration'),
+        'https://drupal.org/project/commerce_cart_expiration'
+      ),
     )),
     '#states' => array(
       'visible' => array(

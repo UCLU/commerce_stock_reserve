@@ -233,7 +233,7 @@ function commerce_stock_reserve_get_user_reserved_amount($product, $account = NU
   foreach ($order_wrapper->commerce_line_items as $line_item_wrapper) {
     if (in_array($line_item_wrapper->getBundle(), commerce_product_line_item_types())
       && $line_item_wrapper->commerce_product->product_id->value() == $product->product_id) {
-        $line_item_ids[] = $line_item_wrapper->line_item_id->value();
+      $line_item_ids[] = $line_item_wrapper->line_item_id->value();
     }
   }
   if (!count($line_item_ids)) {
