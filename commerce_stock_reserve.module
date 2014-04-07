@@ -62,7 +62,7 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
   switch ($date_ref) {
     case 'order_created':
       $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
-      $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
+      $select->join('commerce_order', 'co', 'co.order_id = cli.order_id');
       $select->condition('co.created', REQUEST_TIME - $interval, '<');
       break;
 
@@ -78,7 +78,7 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
     case 'order_changed':
     default:
       $select->join('commerce_line_item', 'cli', 'cli.line_item_id = csr.line_item_id');
-      $select->join('commerce_order', 'co', 'co.order_id = cli.line_item_id');
+      $select->join('commerce_order', 'co', 'co.order_id = cli.order_id');
       $select->condition('co.changed', REQUEST_TIME - $interval, '<');
       break;
   }
