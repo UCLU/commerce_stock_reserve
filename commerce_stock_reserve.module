@@ -118,7 +118,7 @@ function commerce_stock_reserve_expire_line_items($interval = 1800, $date_ref = 
   if ($done) {
     commerce_line_item_delete_multiple($done);
     watchdog('commerce_stock_reserve', 'Released reserve stock and deleted @count line item(s)', array(
-      '@count' => count($delete),
+      '@count' => count($done),
     ));
   }
   if ($errors) {
