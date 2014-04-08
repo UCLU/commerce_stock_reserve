@@ -15,6 +15,7 @@ function commerce_stock_reserve_default_rules_configuration() {
   $rule = rules_reaction_rule();
   $rule->label = 'Reserve stock for cart';
   $rule->active = TRUE;
+  $rule->tags = array('commerce_stock_reserve', 'stock_control');
   $rule->event('commerce_cart_product_add')
     ->event('commerce_line_item_update');
   $rule->action('commerce_stock_reserve_reserve', array(
@@ -26,6 +27,7 @@ function commerce_stock_reserve_default_rules_configuration() {
   $rule = rules_reaction_rule();
   $rule->label = 'Release reserved stock for cart';
   $rule->active = TRUE;
+  $rule->tags = array('commerce_stock_reserve', 'stock_control');
   $rule->event('commerce_cart_product_remove');
   $rule->action('commerce_stock_reserve_release', array(
     'commerce_line_item:select' => 'commerce-line-item',
@@ -36,6 +38,7 @@ function commerce_stock_reserve_default_rules_configuration() {
   $rule = rules_reaction_rule();
   $rule->label = 'Release reserved stock when completing checkout';
   $rule->active = TRUE;
+  $rule->tags = array('commerce_stock_reserve', 'stock_control');
   $rule->event('commerce_checkout_complete');
   $rule->action(
     rules_loop(array(
@@ -100,7 +103,8 @@ function commerce_stock_reserve_default_rules_configuration_alter(&$configs) {
   // of stock available to the user, i.e. the product's current stock PLUS what
   // the user has already reserved.
   if (isset($configs['rules_stock_validate_add_to_cart'])) {
-    $configs['rules_stock_validate_add_to_cart']->condition(
+    $rule = $configs['rules_stock_validate_add_to_cart'];
+    $rule->condition(
         rules_condition('commerce_stock_reserve_is_enough_available', array(
           'commerce_product:select' => 'commerce-product',
           'stock_already_ordered:select' => 'stock-already-ordered',
@@ -112,9 +116,11 @@ function commerce_stock_reserve_default_rules_configuration_alter(&$configs) {
         'message' => 'The maximum quantity available for <em>[commerce-product:title]</em> is [commerce-product:user-available-stock].',
         'approved_quantity:select' => 'approved-quantity',
       ));
+    $rule->tags[] = 'commerce_stock_reserve';
   }
   if (isset($configs['rules_stock_validate_checkout'])) {
-    $configs['rules_stock_validate_checkout']->condition(
+    $rule = $configs['rules_stock_validate_checkout'];
+    $rule->condition(
         rules_condition('commerce_stock_reserve_is_enough_available', array(
           'commerce_product:select' => 'commerce-product',
           'stock_already_ordered:select' => 'stock-already-ordered',
@@ -126,5 +132,6 @@ function commerce_stock_reserve_default_rules_configuration_alter(&$configs) {
         'message' => 'The maximum quantity available for <em>[commerce-product:title]</em> is [commerce-product:user-available-stock].',
         'approved_quantity:select' => 'commerce-product:commerce-stock',
       ));
+    $rule->tags[] = 'commerce_stock_reserve';
   }
 }
