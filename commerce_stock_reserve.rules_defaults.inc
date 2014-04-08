@@ -50,6 +50,40 @@ function commerce_stock_reserve_default_rules_configuration() {
   );
   $configs['commerce_stock_reserve_release_checkout'] = $rule;
 
+  // Release reserved stock for canceled orders.
+  $rule = rules_reaction_rule();
+  $rule->label = 'Release reserved stock for canceled orders';
+  $rule->active = TRUE;
+  $rule->tags = array('commerce_stock_reserve', 'stock_control');
+  $rule->event('commerce_order_update');
+  // Check that the order is now in a 'canceled' state, when it was previously
+  // in a 'cart' or 'checkout' state.
+  $rule->condition('data_is', array(
+      'data:select' => 'commerce-order:state',
+      'value' => 'canceled',
+    ))
+    ->condition('data_is', array(
+      'data:select' => 'commerce-order-unchanged:state',
+      'op' => 'IN',
+      'value' => array(
+        'cart' => 'cart',
+        'checkout' => 'checkout',
+      ),
+    ));
+  // Release stock for the order's line items.
+  $rule->action(
+    rules_loop(array(
+      'list:select' => 'commerce-order:commerce-line-items',
+      'item:var' => 'line_item',
+      'item:label' => t('Current line item'),
+      'item:type' => 'commerce_line_item',
+    ))
+    ->action('commerce_stock_reserve_release', array(
+      'commerce_line_item:select' => 'line-item',
+    ))
+  );
+  $configs['commerce_stock_reserve_release_canceled'] = $rule;
+
   return $configs;
 }
 
