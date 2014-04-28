@@ -23,6 +23,13 @@ function commerce_stock_reserve_menu() {
 }
 
 /**
+ * Implements hook_views_api().
+ */
+function commerce_stock_reserve_views_api() {
+  return array('api' => 3);
+}
+
+/**
  * Implements hook_cron().
  */
 function commerce_stock_reserve_cron() {
