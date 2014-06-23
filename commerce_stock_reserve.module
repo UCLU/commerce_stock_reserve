@@ -15,7 +15,7 @@ function commerce_stock_reserve_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('commerce_stock_reserve_config_form'),
     'access arguments' => array('administer commerce_stock settings'),
-    'file' => 'commerce_stock_reserve.admin.inc',
+    'file' => 'includes/commerce_stock_reserve.admin.inc',
     'type' => MENU_LOCAL_TASK,
     'weight' => 10,
   );
@@ -26,7 +26,10 @@ function commerce_stock_reserve_menu() {
  * Implements hook_views_api().
  */
 function commerce_stock_reserve_views_api() {
-  return array('api' => 3);
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'commerce_stock_reserve') . '/includes',
+  );
 }
 
 /**
