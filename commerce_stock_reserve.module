@@ -338,11 +338,13 @@ function commerce_stock_reserve_get_product_stock($product) {
  *   The new stock.
  * @param bool $skip_save
  *   Set this to TRUE to skip saving the product.
+ * @param DatabaseTransaction $transaction
+ *   Optionally a DatabaseTransaction object to use.
  *
  * @return bool
  *   TRUE on success, FALSE on failure.
  */
-function commerce_stock_reserve_set_product_stock($product, $stock, $skip_save = FALSE) {
+function commerce_stock_reserve_set_product_stock($product, $stock, $skip_save = FALSE, DatabaseTransaction $transaction = NULL) {
   $success = FALSE;
   // Support Commerce Simple Stock (commerce_ss).
   if (module_exists('commerce_ss') && isset($product->commerce_stock)) {
@@ -360,7 +362,7 @@ function commerce_stock_reserve_set_product_stock($product, $stock, $skip_save =
     }
   }
   if (!$skip_save && $success) {
-    $success = (bool) commerce_product_save($product);
+    $success = (bool) entity_get_controller('commerce_product')->save($product, $transaction);
   }
   return $success;
 }
@@ -436,31 +438,38 @@ function commerce_stock_reserve($line_item, $release = FALSE, $restore_to_produc
 
   // Save the product's new stock value and update the reserved stock.
   $transaction = db_transaction(__FUNCTION__);
-  if (!$release || $restore_to_product) {
-    $update = commerce_stock_reserve_set_product_stock($product, $new_stock);
-    if (!$update) {
-      throw new Exception('Failed to set stock for product ' . $product->sku);
+  try {
+    if (!$release || $restore_to_product) {
+      $update = commerce_stock_reserve_set_product_stock($product, $new_stock, FALSE, $transaction);
+      if (!$update) {
+        throw new Exception('Failed to set stock for product ' . $product->sku);
+      }
+    }
+    if ($to_reserve > 0) {
+      $key = array(
+        'line_item_id' => $line_item->line_item_id,
+        'product_id' => $product->product_id,
+      );
+      db_merge('commerce_stock_reserve')
+        ->key($key)
+        ->insertFields($key + array('created' => REQUEST_TIME))
+        ->fields(array(
+          'amount' => $to_reserve,
+          'changed' => REQUEST_TIME,
+        ))
+        ->execute();
+    }
+    else {
+      // If the reserved stock level is now 0, delete the rows.
+      db_delete('commerce_stock_reserve')
+        ->condition('line_item_id', $line_item->line_item_id)
+        ->execute();
     }
   }
-  if ($to_reserve > 0) {
-    $key = array(
-      'line_item_id' => $line_item->line_item_id,
-      'product_id' => $product->product_id,
-    );
-    db_merge('commerce_stock_reserve')
-      ->key($key)
-      ->insertFields($key + array('created' => REQUEST_TIME))
-      ->fields(array(
-        'amount' => $to_reserve,
-        'changed' => REQUEST_TIME,
-      ))
-      ->execute();
-  }
-  else {
-    // If the reserved stock level is now 0, delete the rows.
-    db_delete('commerce_stock_reserve')
-      ->condition('line_item_id', $line_item->line_item_id)
-      ->execute();
+  catch (Exception $e) {
+    $transaction->rollback();
+    watchdog_exception('commerce_stock_reserve', $e);
+    return FALSE;
   }
   return TRUE;
 }
