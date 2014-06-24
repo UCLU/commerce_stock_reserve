@@ -23,20 +23,16 @@ class CommerceStockReserveBasicTestCase extends CommerceStockReserveBaseTestCase
    * Enable Commerce Simple Stock and Commerce Simple Stock Rules.
    */
   public function setUp($modules = array()) {
-    parent::setUp(array('commerce_ss', 'commerce_ssr',));
+    parent::setUp(array('commerce_ss', 'commerce_ssr'));
   }
 
   /**
    * Test reserving stock.
    */
   public function testReserve() {
-    $product_type_name = 'product_with_stock';
-    $this->createDummyProductType($product_type_name);
-    $ss_enabled = $this->enableSimpleStock($product_type_name);
+    $this->enableSimpleStock();
 
-    $this->assertTrue($ss_enabled, t('Simple Stock management enabled for product type'));
-
-    $product = $this->createDummyProduct(NULL, NULL, 10, NULL, NULL, 'product_with_stock');
+    $product = $this->createDummyProduct();
 
     $initial_stock = rand(10, 15);
     commerce_stock_reserve_set_product_stock($product, $initial_stock);
@@ -71,21 +67,25 @@ class CommerceStockReserveBasicTestCase extends CommerceStockReserveBaseTestCase
   }
 
   /**
-   * Enable Simple Stock managment for a product type.
+   * Enable Simple Stock management for a product type.
    *
    * @param string $product_type
-   *   The machine name for a product type.
+   *   The machine name for a product type (default: 'product').
    *
    * @return bool
    *   TRUE for success and FALSE for failure.
    */
-  protected function enableSimpleStock($product_type) {
+  protected function enableSimpleStock($product_type = 'product') {
     if (commerce_ss_product_type_enabled($product_type)) {
       return TRUE;
     }
     module_load_include('inc', 'commerce_ss', 'includes/commerce_ss.admin');
     commerce_ss_admin_configure_product_type($product_type);
-    return commerce_ss_product_type_enabled($product_type);
+    $enabled = commerce_ss_product_type_enabled($product_type);
+    $this->assertTrue($enabled, t('Simple Stock management enabled for product type @type', array(
+      '@type' => $product_type,
+    )));
+    return $enabled;
   }
 
 }
