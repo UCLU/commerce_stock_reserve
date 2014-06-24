@@ -8,3 +8,6 @@ dependencies[] = commerce
 dependencies[] = commerce_product
 dependencies[] = commerce_cart
 dependencies[] = commerce_stock (7.x-2.x)
+
+files[] = tests/commerce_stock_reserve_base.test
+files[] = tests/commerce_stock_reserve_basic.test

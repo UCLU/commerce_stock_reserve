@@ -308,13 +308,15 @@ function commerce_stock_reserve_product_is_enabled($product) {
  *
  * @param object $product
  *   The Commerce product object.
+ * @param bool $reset
+ *   Whether to reset the static cache for this check (default: FALSE).
  *
  * @return mixed
  *   The product's stock amount.
  */
-function commerce_stock_reserve_get_product_stock($product) {
+function commerce_stock_reserve_get_product_stock($product, $reset = FALSE) {
   static $cache = array();
-  if (isset($cache[$product->product_id])) {
+  if (!$reset && isset($cache[$product->product_id])) {
     return $cache[$product->product_id];
   }
   $stock = 0;
