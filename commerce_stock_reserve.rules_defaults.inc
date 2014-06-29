@@ -18,6 +18,11 @@ function commerce_stock_reserve_default_rules_configuration() {
   $rule->tags = array('commerce_stock_reserve', 'stock_control');
   $rule->event('commerce_cart_product_add')
     ->event('commerce_line_item_update');
+  $rule->condition('data_is', array(
+    'data:select' => 'commerce-order:state',
+    'op' => '==',
+    'value' => 'cart',
+  ));
   $rule->action('commerce_stock_reserve_reserve', array(
     'commerce_line_item:select' => 'commerce-line-item',
   ));
