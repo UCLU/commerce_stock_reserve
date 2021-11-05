@@ -61,16 +61,13 @@ class Cron implements CronInterface {
     /** @var \Drupal\commerce_stock\StockServiceManagerInterface $stockManager */
     $stockServiceManager = \Drupal::service('commerce_stock.service_manager');
 
-    $config = \Drupal::config('commerce_stock_reserve.settings');
-    $enabled = $config->get('cart_expiration') ?? FALSE;
-    if (!$enabled) {
+    $interval = commerce_stock_reserve_get_cart_expiry_interval();
+    if (!$interval) {
       return;
     }
 
-    $number = $config->get('cart_expiration_number') ?? 1;
-    $unit = $config->get('cart_expiration_unit') ?? 'day';
-
-    $interval = new Interval($number, $unit);
+    $config = \Drupal::config('commerce_stock_reserve.settings');
+    $moduleEnabledTime = $config->get('module_enable_time');
 
     /** @var \Drupal\commerce_order\Entity\OrderTypeInterface[] $order_types */
     $order_types = $this->orderTypeStorage->loadMultiple();
@@ -85,6 +82,12 @@ class Cron implements CronInterface {
           if ($noPayments) {
             $order = Order::load($id);
             foreach ($order->getItems() as $item) {
+              // Avoid restoring stock for order items changed before this module was enabled,
+              // as the stock won't have been reserved so it'll create more stock than desired.
+              if ($item->getChangedTime() < $moduleEnabledTime) {
+                continue;
+              }
+
               $variation = $item->getPurchasedEntity();
 
               // Only delete order items with items that are stock controlled.

@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for the commerce_stock_reserve module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function commerce_stock_reserve_install() {
+  $extension_config = \Drupal::configFactory()
+    ->getEditable('commerce_stock_reserve.settings');
+  $extension_config->set('module_enable_time', \Drupal::time()->getRequestTime());
+  $extension_config->save();
+}

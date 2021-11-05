@@ -38,10 +38,8 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
       if (!$entity) {
         continue;
       }
-      $service = $this->stockServiceManager->getService($entity);
-      $checker = $service->getStockChecker();
-      // If always in stock then no need to create a transaction.
-      if ($checker->getIsAlwaysInStock($entity)) {
+
+      if (!commerce_stock_reserve_check_if_stock_controlled($entity)) {
         continue;
       }
 
@@ -81,6 +79,8 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
     }
     $original_order = $this->getOriginalEntity($order);
 
+    $showMessage = FALSE;
+
     foreach ($order->getItems() as $item) {
       if (!$original_order->hasItem($item)) {
         if ($order && $order->get('cart')->value) {
@@ -88,18 +88,19 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
           if (!$entity) {
             continue;
           }
-          $service = $this->stockServiceManager->getService($entity);
-          $checker = $service->getStockChecker();
-          // If always in stock then no need to create a transaction.
-          if ($checker->getIsAlwaysInStock($entity)) {
+
+          if (!commerce_stock_reserve_check_if_stock_controlled($entity)) {
             continue;
           }
+
           $context = self::createContextFromOrder($order);
           $location = $this->stockServiceManager->getTransactionLocation($context, $entity, $item->getQuantity());
 
           // TAKE STOCK OUT FOR NEW ITEM IN CART:
           $transaction_type = StockTransactionsInterface::STOCK_OUT;
           $quantity = -1 * $item->getQuantity();
+
+          $showMessage = TRUE;
 
           $this->runTransactionEvent(
             $eventType,
@@ -111,6 +112,12 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
             $order
           );
         }
+      }
+    }
+
+    if ($showMessage) {
+      if ($message = commerce_stock_reserve_get_message()) {
+        \Drupal::messenger()->addMessage($message);
       }
     }
   }
@@ -134,12 +141,11 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
       if (!$entity) {
         continue;
       }
-      $service = $this->stockServiceManager->getService($entity);
-      $checker = $service->getStockChecker();
-      // If always in stock then no need to create a transaction.
-      if ($checker->getIsAlwaysInStock($entity)) {
+
+      if (!commerce_stock_reserve_check_if_stock_controlled($entity)) {
         continue;
       }
+
       // RETURN STOCK ON CANCEL OF DRAFT ORDER
       $quantity = $item->getQuantity();
       $context = self::createContextFromOrder($order);
@@ -181,12 +187,11 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
       if (!$entity) {
         continue;
       }
-      $service = $this->stockServiceManager->getService($entity);
-      $checker = $service->getStockChecker();
-      // If always in stock then no need to create a transaction.
-      if ($checker->getIsAlwaysInStock($entity)) {
+
+      if (!commerce_stock_reserve_check_if_stock_controlled($entity)) {
         continue;
       }
+
       // RETURN STOCK ON ORDER DELETE
       $quantity = $item->getQuantity();
       $context = self::createContextFromOrder($order);
@@ -227,12 +232,11 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
         if (!$entity) {
           return;
         }
-        $service = $this->stockServiceManager->getService($entity);
-        $checker = $service->getStockChecker();
-        // If always in stock then no need to create a transaction.
-        if ($checker->getIsAlwaysInStock($entity)) {
+
+        if (!commerce_stock_reserve_check_if_stock_controlled($entity)) {
           return;
         }
+
         // ON QUANTITY CHANGE
         // If we are removing quantity, return it as IN
         // If we are adding quantity, reserve it as OUT
@@ -267,17 +271,16 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
       if ($order->getState()->getWorkflow()->getGroup() !== 'commerce_order') {
         return;
       }
+
       $entity = $item->getPurchasedEntity();
       if (!$entity) {
         return;
       }
-      /** @var \Drupal\commerce_stock\StockServiceInterface $service */
-      $service = $this->stockServiceManager->getService($entity);
-      $checker = $service->getStockChecker();
-      // If always in stock then no need to create a transaction.
-      if ($checker->getIsAlwaysInStock($entity)) {
+
+      if (!commerce_stock_reserve_check_if_stock_controlled($entity)) {
         return;
       }
+
       $context = self::createContextFromOrder($order);
       $location = $this->stockServiceManager->getTransactionLocation($context, $entity, $item->getQuantity());
       $transaction_type = StockTransactionsInterface::STOCK_IN;
@@ -332,9 +335,6 @@ class OrderEventSubscriber extends StockOrderEventSubscriber {
     $transaction_type_id,
     Order $order
   ) {
-    $message = $event_type->getLabel() . ' - ' . $entity->id() . ' quantity: ' . $quantity;
-    \Drupal::logger('commerce_stock_reserve')->debug($message);
-    \Drupal::messenger()->addMessage($message);
 
     $data['message'] = $event_type->getDefaultMessage();
     $metadata = [

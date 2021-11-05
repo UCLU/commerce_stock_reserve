@@ -5,6 +5,10 @@
  * Contains commerce_stock_reserve.module.
  */
 
+use Drupal\commerce\Interval;
+use Drupal\commerce\PurchasableEntityInterface;
+use Drupal\commerce_order\Entity\Order;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
@@ -28,4 +32,100 @@ function commerce_stock_reserve_help($route_name, RouteMatchInterface $route_mat
  */
 function commerce_stock_reserve_cron() {
   \Drupal::service('commerce_stock_reserve.cart_cron')->run();
+}
+
+/**
+ * Return TRUE if this module controls the stock of this purchaseable entity.
+ *
+ * @param PurchasableEntityInterface $purchaseableEntity
+ *
+ * @return bool
+ */
+function commerce_stock_reserve_check_if_stock_controlled(PurchasableEntityInterface $purchaseableEntity) {
+  /** @var \Drupal\commerce_stock\StockServiceManagerInterface $stockManager */
+  $stockManager = \Drupal::service('commerce_stock.service_manager');
+
+  /** @var \Drupal\commerce_stock\StockServiceInterface $service */
+  $service = $stockManager->getService($purchaseableEntity);
+
+  $checker = $service->getStockChecker();
+
+  // If always in stock then no need to create a transaction.
+  if ($checker->getIsAlwaysInStock($purchaseableEntity)) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Check if order has any items that are stock controlled.
+ *
+ * @param Order $order
+ *
+ * @return bool
+ */
+function commerce_stock_reserve_order_has_stock_controlled_items(Order $order) {
+  $items = $order->getItems();
+  foreach ($items as $item) {
+    if (commerce_stock_reserve_check_if_stock_controlled($item->getPurchasedEntity())) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Get the user message or NULL.
+ *
+ * @return string|null
+ */
+function commerce_stock_reserve_get_message() {
+  $config = \Drupal::config('commerce_stock_reserve.settings');
+  if ($config->get('message_enabled')) {
+    $message = $config->get('message_text');
+
+    $interval = commerce_stock_reserve_get_cart_expiry_interval();
+    // @todo make this translateable and properly pluralise it
+    $intervalString = $interval->getNumber() . ' ' . $interval->getUnit() . ($interval->getNumber() != 1 ? 's' : '');
+    $message = str_replace('[interval]', $intervalString, $message);
+
+    return $message;
+  }
+  return NULL;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_stock_reserve_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  if (strpos($form_id, 'views_form_commerce_cart_form') !== FALSE) {
+    if ($message = commerce_stock_reserve_get_message()) {
+      $viewExecutable = $form_state->getBuildInfo()['args'][0];
+      $resultRow = $viewExecutable->result[0];
+      $order_id = $resultRow->order_id;
+      $order = Order::load($order_id);
+      if (commerce_stock_reserve_order_has_stock_controlled_items($order)) {
+        \Drupal::messenger()->addWarning($message);
+      }
+    }
+  }
+}
+
+/**
+ * Get expiry interval or NULL.
+ *
+ * @return Interval|null
+ */
+function commerce_stock_reserve_get_cart_expiry_interval() {
+  $config = \Drupal::config('commerce_stock_reserve.settings');
+  $enabled = $config->get('cart_expiration') ?? FALSE;
+  if (!$enabled) {
+    return NULL;
+  }
+  $number = $config->get('cart_expiration_number') ?? 1;
+  $unit = $config->get('cart_expiration_unit') ?? 'day';
+  return new Interval($number, $unit);
 }

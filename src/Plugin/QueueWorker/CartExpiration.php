@@ -69,19 +69,25 @@ class CartExpiration extends QueueWorkerBase implements ContainerFactoryPluginIn
    * {@inheritdoc}
    */
   public function processItem($data) {
+    $interval = commerce_stock_reserve_get_cart_expiry_interval();
+    if (!$interval) {
+      return;
+    }
+
     foreach ($data as $order_item_id) {
       /** @var \Drupal\commerce_order\Entity\OrderItemInterface $order */
       $orderItem = $this->orderItemStorage->loadUnchanged($order_item_id);
       if (!$orderItem) {
-        \Drupal::logger('su_shop')->debug('Cannot find order item ID ' . $order_item_id);
+        \Drupal::logger('commerce_stock_reserve')->debug('Cannot find order item ID ' . $order_item_id);
         continue;
       }
       $order = $this->orderStorage->loadUnchanged($orderItem->getOrder()->id());
 
       $current_date = new DrupalDateTime('now');
-      $interval = new Interval(2, 'hour');
+
       $expiration_date = $interval->subtract($current_date);
       $expiration_timestamp = $expiration_date->getTimestamp();
+
       // Make sure that the cart order still qualifies for expiration.
       if ($order->get('cart')->value && $order->getChangedTime() <= $expiration_timestamp) {
         $order = $orderItem->getOrder();
