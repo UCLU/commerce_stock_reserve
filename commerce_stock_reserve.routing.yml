@@ -4,6 +4,6 @@ commerce_stock_reserve.commerce_stock_reserve_settings_form:
     _form: '\Drupal\commerce_stock_reserve\Form\SettingsForm'
     _title: "Stock reserve settings"
   requirements:
-    _permission: "access administration pages"
+    _permission: "administer commerce stock"
   options:
     _admin_route: TRUE

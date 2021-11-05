@@ -1,1 +1,3 @@
-commerce_stock_reserve:
+cart_expiration: TRUE
+cart_expiration_number: 1
+cart_expiration_unit: "day"

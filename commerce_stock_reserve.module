@@ -22,3 +22,10 @@ function commerce_stock_reserve_help($route_name, RouteMatchInterface $route_mat
     default:
   }
 }
+
+/**
+ * Implements hook_cron().
+ */
+function commerce_stock_reserve_cron() {
+  \Drupal::service('commerce_stock_reserve.cart_cron')->run();
+}

@@ -61,10 +61,20 @@ class Cron implements CronInterface {
     /** @var \Drupal\commerce_stock\StockServiceManagerInterface $stockManager */
     $stockServiceManager = \Drupal::service('commerce_stock.service_manager');
 
+    $config = \Drupal::config('commerce_stock_reserve.settings');
+    $enabled = $config->get('cart_expiration') ?? FALSE;
+    if (!$enabled) {
+      return;
+    }
+
+    $number = $config->get('cart_expiration_number') ?? 1;
+    $unit = $config->get('cart_expiration_unit') ?? 'day';
+
+    $interval = new Interval($number, $unit);
+
     /** @var \Drupal\commerce_order\Entity\OrderTypeInterface[] $order_types */
     $order_types = $this->orderTypeStorage->loadMultiple();
     foreach ($order_types as $order_type) {
-      $interval = new Interval(2, 'hour');
       $all_order_ids = $this->getOrderIds($order_type->id(), $interval);
       foreach (array_chunk($all_order_ids, 100) as $order_ids) {
         $order_item_ids = [];
