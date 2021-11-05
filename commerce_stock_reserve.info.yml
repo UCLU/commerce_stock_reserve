@@ -1,0 +1,8 @@
+name: "Commerce Stock Reserve"
+type: module
+description: "Commerce Stock Reserve"
+core: 8.x
+package: "Commerce"
+dependencies:
+  - commerce_stock
+core_version_requirement: ^8 || ^9

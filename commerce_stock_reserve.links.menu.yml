@@ -1,0 +1,6 @@
+commerce_stock_reserve.commerce_stock_reserve_settings_form:
+  title: "Commerce Stock Reserve settings"
+  route_name: commerce_stock_reserve.commerce_stock_reserve_settings_form
+  description: "Configure order item expiry for reserved stock"
+  parent: commerce_stock.configuration
+  weight: 99
